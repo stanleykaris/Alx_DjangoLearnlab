@@ -1,37 +1,56 @@
-from django.urls import path, include
-from .views import list_books, LibraryDetailView, register, user_logout, user_login, admin_view, librarian_view, member_view, add_book, edit_book, delete_book
-from django.contrib.auth.views import LoginView, LogoutView
-from django.contrib import admin
-from . import views
+from django.urls import path
+from .views import list_books, LibraryDetailView
 
 urlpatterns = [
-    path('books/', list_books, name="list_books"),
-    path('library/<int:pk>/', LibraryDetailView.as_view(), name="library_detail"),
+    path('books/', list_books, name='list_books'),
+    path('library//<int:pk>/', LibraryDetailView.as_view(), name='library_detail'),
 ]
+
+from django.contrib import admin
+from django.urls import path, include
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("relationship_app.urls")), # Include the urls from the relationship_app
+    path("", include("relationship_app.urls")),  # Include relationship_app URLs
 ]
 
-urlpatterns = [
-    path('register/', register, name='register'),
-    path('login/', user_login, name='login'),
-    path('logout/', user_logout, name='logout'),
-]
+
+from django.urls import path
+from .views import register, user_login, user_logout
 
 urlpatterns = [
-    path("register/", views.register, name="register"),
-    path("login/", LoginView.as_view(template_name="relationship_app/login.html"), name="login"),
-    path("logout/", LogoutView.as_view(template_name="relationship_app/logout.html"), name="logout"),
-    path("", views.home, name="home"),
+    path("register/", register, name="register"),
+    path("login/", user_login, name="login"),
+    path("logout/", user_logout, name="logout"),
+    
 ]
+
+from django.urls import path
+from django.contrib.auth.views import LoginView, LogoutView
+from . import views # import custom views
+
+
+urlpatterns = [
+    path("register/", views.register, name="register"),  # Registration page
+    path("login/", LoginView.as_view(template_name="relationship_app/login.html"), name="login"),  # Login page
+    path("logout/", LogoutView.as_view(template_name="relationship_app/logout.html"), name="logout"),  # Logout page
+    path("", views.home, name="home"),  # Home page
+]
+
+
+#configuring url patterns for assgn3
+from django.urls import path
+from.views import admin_view, librarian_view, member_view
 
 urlpatterns = [
     path('admin-view/', admin_view, name='admin_view'),
     path('librarian-view/', librarian_view, name='librarian_view'),
     path('member-view/', member_view, name='member_view'),
 ]
+
+# defining url patterns for assgn 4
+from django.urls import path
+from .views import add_book, edit_book, delete_book
 
 urlpatterns = [
     path("books/add_book/", add_book, name="add_book"),
