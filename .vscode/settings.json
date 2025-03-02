@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./advanced_features_and_security/LibraryProject"
+    ]
+}
