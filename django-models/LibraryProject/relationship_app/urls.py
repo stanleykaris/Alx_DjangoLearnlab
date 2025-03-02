@@ -9,6 +9,8 @@ from .views import admin_view, librarian_view, member_view
 from .views import add_book, edit_book, delete_book, book_list
 
 urlpatterns = [
+    path('', views.book_list_view, name='home'),
+    path('', views.LibraryDetailsView.as_view(), name='library_details'),
     path('books/', list_books, name='list_books'),
     path('library/<int:pk>/', LibraryDetailView.as_view(), name='library_detail'),
     path('register/', views.register_view, name='register'),
