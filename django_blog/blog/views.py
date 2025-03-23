@@ -50,6 +50,15 @@ class CommentCreateView(CreateView):
         return self.object.post.get_absolute_url()
     
 @method_decorator(login_required, name='dispatch')
+class CommentUpdateView(UpdateView):
+    model = Comment
+    form_class = CommentForm
+    template_name = 'blog/comment_form.html'
+    
+    def get_success_url(self):
+        return self.object.post.get_absolute_url()
+    
+@method_decorator(login_required, name='dispatch')
 class CommentDeleteView(DeleteView):
     model = Comment
     template_name = 'blog/comment_confirm_delete.html'
