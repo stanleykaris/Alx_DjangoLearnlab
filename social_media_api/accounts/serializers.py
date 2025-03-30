@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
+from .models import CustomUser, UserFollower
 
 class CustomUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField()
@@ -21,5 +22,17 @@ class TokenSerializer(serializers.ModelSerializer):
         model = Token
         fields = (['key'],)
     
+class UserFollowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'profile_picture', 'bio']
+        
+class FollowerListSerializer(serializers.ModelSerializer):
+    from_user = UserFollowSerializer(read_only=True)
+    to_user = UserFollowSerializer(read_only=True)
+    followed_at = serializers.DateTimeField(source='created_at', read_only=True)
     
+    class Meta:
+        model = UserFollower
+        fields = ['from_user', 'to_user', 'followed_at']    
     

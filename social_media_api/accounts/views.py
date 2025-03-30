@@ -5,7 +5,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
 from .serializers import CustomUserSerializer, TokenSerializer
 from rest_framework import permissions
-from .models import CustomUser
+from .models import CustomUser, UserFollower
 
 # Create your views here.
 class RegisterUserView(generics.CreateAPIView):
@@ -39,10 +39,32 @@ class FollowUserView(generics.GenericAPIView):
     def post(self, request, user_id):
         try:
             user_to_follow = CustomUser.objects.get(id=user_id)
-            request.user.following.add(user_to_follow)
-            return Response({'status': 'followed'}, status=status.HTTP_200_OK)
+            
+            # Preventing self-following
+            if request.user == user_to_follow:
+                return Response({'error': 'Cannot follow yourself'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            _, created = UserFollower.objects.get_or_create(from_user=request.user, to_user=user_to_follow)
+            if created:
+                return Response(
+                    {"message": f"You are now following {user_to_follow.username}"},
+                    status=status.HTTP_201_CREATED
+                )
+            return Response(
+                {"message": f"You are already following {user_to_follow.username}"},
+                status=status.HTTP_200_OK
+            )
         except CustomUser.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    def delete(self, request, user_id):
+        try:
+            user_to_unfollow = CustomUser.objects.get(id=user_id)
+            follow_relationship = UserFollower.objects.get(from_user=request.user, to_user=user_to_unfollow)
+            follow_relationship.delete()
+            return Response({"message": f"You have unfollowed {user_to_unfollow.username}"}, status=status.HTTP_200_OK)
+        except UserFollower.DoesNotExist:
+            return Response({'error': 'You are not following this user'}, status=status.HTTP_404_NOT_FOUND)
         
 class UnfollowUserView(generics.GenericAPIView):
     queryset = CustomUser.objects.all()
@@ -64,3 +86,27 @@ class UserProfileView(generics.RetrieveAPIView):
     def get_object(self):
         return self.request.user
     
+class FollowersListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        followers = request.user.followers.all()
+        serializer = CustomUserSerializer(followers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UserFollowStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, user_id=None):
+        user = request.user if user_id is None else CustomUser.objects.get(id=user_id)
+        
+        stats = {
+            'username': user.username,
+            'followers_count': user.followers.count(),
+            'following_count': user.following.count(),
+            'is_following': False
+        }
+        
+        if request.user != user:
+            stats['is_following'] = UserFollower.objects.filter(from_user=request.user, to_user=user).exists()
+        return Response(stats, status=status.HTTP_200_OK)
