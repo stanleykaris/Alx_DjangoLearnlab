@@ -3,13 +3,13 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework import viewsets, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import FilterSet, CharFilter
+from django.db.models import Q
 from .models import Post, Comment, Like
 from .serializers import CommentSerializer, PostSerializer
-from rest_framework import filters
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import filters, generics
 from rest_framework.response import Response
 from rest_framework import status
+from django.utils import timezone
 
 # Create your views here.
 class IsAuthorOrReadOnly(permissions.BasePermission):
@@ -73,13 +73,66 @@ class CommentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(post_id=post_id)
         return queryset
         
-class FeedView(APIView):
+class FeedView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = PostSerializer
+    pagination_class = StandardResultsSetPagination
     
-    def get(self, request):
-        following_users = request.user.following.all()
-        posts = Post.objects.filter(author__in=following_users).order_by('-created_at')
-        serializer = self.serializer_class(posts, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        user = self.request.user
+        # Get posts from users that the current user follows
+        # Include user's posts in the feed
+        return Post.objects.filter(
+            Q(author__in=user.following.all()) | Q(author=user)
+        ).select_related('author').prefetch_related(
+            'comments',
+            'likes'
+        ).order_by('-created_at')
+
+class FeedViewWithFilters(generics.ListAPIView):
+    serializer_class = PostSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    
+    def get_queryset(self):
+        user = self.request.user
         
+        # Base queryset
+        queryset = Post.objects.filter(
+            Q(author__in=user.following.all()) | Q(author=user)
+        ).select_related('author').prefetch_related(
+            'comments',
+            'likes'
+        ).order_by('-created_at')
+        
+        # Apply filters
+        time_filter = self.request.query_params.get('time', None)
+        if time_filter:
+            if time_filter == 'today':
+                queryset = queryset.filter(created_at__date=timezone.now().date())
+            elif time_filter == 'this_week':
+                queryset = queryset.filter(created_at_gte=timezone.now() - timezone.timedelta(days=7))
+            elif time_filter == 'this_month':
+                queryset = queryset.filter(created_at_gte=timezone.now() - timezone.timedelta(days=30))
+                
+        # Filter by post type
+        post_type = self.request.query_params.get('type', None)
+        if post_type:
+            queryset = queryset.filter(type=post_type)
+            
+        # Apply sorting
+        sort_by = self.request.query_params.get('sort', '-created_at')
+        valid_sort_fields = {
+            'created_at': '-created_at',
+            'likes': '-likes__count',
+            'comments': '-comments__count'
+        }
+        
+        sorted_field = valid_sort_fields.get(sort_by, '-created_at')
+        return queryset.order_by(sorted_field)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
