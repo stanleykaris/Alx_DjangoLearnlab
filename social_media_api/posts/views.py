@@ -56,7 +56,11 @@ class PostViewSet(viewsets.ModelViewSet):
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all().order_by('-created_at')
     serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    filterset_fields = ['post']
+    search_fields = ['content']
     
     def perform_create(self, serializer):
         post_id = self.kwargs.get('post_id')
