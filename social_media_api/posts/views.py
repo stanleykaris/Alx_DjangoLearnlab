@@ -74,7 +74,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         return queryset
         
 class FeedView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = PostSerializer
     
     def get(self, request):
