@@ -1,6 +1,8 @@
 from django.shortcuts import render
-from rest_framework import generics
-from rest_framework import viewsets, permissions
+from rest_framework.pagination import PageNumberPagination
+from rest_framework import viewsets, permissions, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from django_filters import FilterSet, CharFilter
 from .models import Post, Comment, Like
 from .serializers import CommentSerializer, PostSerializer
 from rest_framework import filters
@@ -16,13 +18,30 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
             return True
         
         return obj.author == request.user
+    
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+    
+class PostFilter(FilterSet):
+    title = CharFilter(lookup_expr='icontains')
+    content = CharFilter(lookup_expr='icontains')
+    author = CharFilter(field_name='author__username', lookup_expr='iexact')
+    
+    class Meta:
+        model = Post
+        fields = ['title', 'content', 'author']
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-created_at')
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['title', 'content']
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = PostFilter
+    search_fields = ['title', 'content', 'author__username']
+    ordering_fields = ['created_at', 'title']
     
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
