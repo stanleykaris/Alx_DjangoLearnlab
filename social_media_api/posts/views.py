@@ -5,10 +5,12 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import FilterSet, CharFilter
 from django.db.models import Q
 from .models import Post, Comment, Like
+from notifications.models import Notification
 from .serializers import CommentSerializer, PostSerializer
 from rest_framework import filters, generics
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.views import APIView
 from django.utils import timezone
 
 # Create your views here.
@@ -136,3 +138,35 @@ class FeedViewWithFilters(generics.ListAPIView):
         context['request'] = self.request
         return context
     
+class LikePostView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, pk):
+        post = generics.get_object_or_404(Post, pk=pk)
+        like, created = Like.objects.get_or_create(user=request.user, post=post)
+        
+        if created:
+            if post.author != request.user:
+                Notification.objects.create(
+                    recipient=post.author,
+                    actor=request.user,
+                    notification_type='like',
+                    verb='liked your post',
+                    target=post
+                )
+            return Response({'status': 'liked'}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'status': 'already liked'}, status=status.HTTP_200_OK)
+
+class UnlikePostView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, pk):
+        post = generics.get_object_or_404(Post, pk=pk)
+        like = Like.objects.filter(user=request.user, post=post)
+        
+        if like.exists():
+            like.delete()
+            return Response({'message': 'You have unliked this post.'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'message': 'You have not liked this post.'}, status=status.HTTP_400_BAD_REQUEST) 
